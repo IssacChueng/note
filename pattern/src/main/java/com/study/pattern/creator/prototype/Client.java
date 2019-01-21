@@ -1,4 +1,4 @@
-package com.study.pattern.prototype;
+package com.study.pattern.creator.prototype;
 
 /**
  * 客户端,作为原型模式中的调用方

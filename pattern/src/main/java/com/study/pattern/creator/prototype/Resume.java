@@ -1,7 +1,7 @@
-package com.study.pattern.prototype;
+package com.study.pattern.creator.prototype;
 
 /**
- * 作为原型模式中的原型
+ * 作为原型模式中的原型, {@link Cloneable} 作为原型接口
  * @author swzhang
  * @date 2019/1/19
  * @description
