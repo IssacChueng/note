@@ -16,5 +16,8 @@ public class Client {
 
         System.out.println("DogRob cry......");
         dogRobot.cry();
+
+        Bird bird = new Bird();
+
     }
 }
