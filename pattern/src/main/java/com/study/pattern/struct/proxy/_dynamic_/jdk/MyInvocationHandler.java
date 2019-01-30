@@ -26,7 +26,7 @@ public class MyInvocationHandler implements InvocationHandler {
     }
 
     /**
-     * 生成代理类
+     * 生成代理类对象
      * @return
      */
     public Object getProxy() {
