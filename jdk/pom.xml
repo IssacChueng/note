@@ -8,10 +8,10 @@
         <artifactId>note</artifactId>
         <version>1.0-SNAPSHOT</version>
     </parent>
-    <artifactId>https</artifactId>
+    <artifactId>jdk</artifactId>
     <version>${project.parent.version}</version>
 
-    <name>https</name>
+    <name>jdk</name>
     <url>http://www.example.com</url>
 
     <properties>

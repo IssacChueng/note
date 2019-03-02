@@ -10,10 +10,10 @@
     <version>1.0-SNAPSHOT</version>
   </parent>
 
-  <artifactId>pattern</artifactId>
+  <artifactId>mysql</artifactId>
   <version>${project.parent.version}</version>
 
-  <name>pattern</name>
+  <name>mysql</name>
   <url>http://www.example.com</url>
 
   <properties>
