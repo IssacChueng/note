@@ -1,25 +1,26 @@
 package com.study.https.ssl;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
+
 import org.apache.commons.httpclient.HttpClient;
 import org.apache.commons.httpclient.methods.GetMethod;
-import org.apache.commons.httpclient.params.HttpClientParams;
-import org.apache.commons.httpclient.params.HttpMethodParams;
-import org.apache.commons.httpclient.params.HttpParams;
-
-import java.io.*;
-import java.nio.ByteBuffer;
-import java.nio.channels.Channel;
-import java.nio.channels.FileChannel;
 
 /**
  * @author swzhang
  * @date 2019/2/16
  * @description
  */
+
 public class HttpsMain {
     public static void main(String[] args) {
         HttpClient httpClient = new HttpClient();
         GetMethod getMethod = new GetMethod("https://steamdb.info/app");
+        FileOutputStream fileOutputStream = null;
         try {
             getMethod.addRequestHeader("Host","steamdb.info");
             getMethod.addRequestHeader("User-Agent","Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:64.0) Gecko/20100101 Firefox/64.0");
@@ -42,7 +43,7 @@ public class HttpsMain {
                 file.delete();
             }
             InputStream response = getMethod.getResponseBodyAsStream();
-            FileOutputStream fileOutputStream = new FileOutputStream(file);
+            fileOutputStream =  new FileOutputStream(file);
             ByteBuffer byteBuffer = ByteBuffer.allocate(1024);
             byte[] data = new byte[1024];
             FileChannel channel = fileOutputStream.getChannel();
@@ -56,6 +57,13 @@ public class HttpsMain {
             throw new RuntimeException(e);
         } finally {
             getMethod.releaseConnection();
+            if (fileOutputStream != null) {
+                try {
+                    fileOutputStream.close();                    
+                } catch (Exception e) {
+                    System.err.println(e.getMessage() + e);
+                }
+            }
         }
     }
 }
