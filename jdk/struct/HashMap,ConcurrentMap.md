@@ -22,3 +22,22 @@
         插入过又分为两种情况: key相同,key不同但hash相同(hash冲突).  
         key相同的情况: 设置新的值,并返回原来的值.  
         key的hash相同: 将新的值插入到原先的数组对应位置的链表头部  
+
+    > 在往map中插入新值的时候会出现数组扩容的情况,触发条件是当前元素没有插入时,size >= 扩容阈值, 并且key对应的数组位置上已经有值, 扩容后的数组大小是原先数组大小的两倍,并且,原先的链表上的每个元素key都需要重新计算hash值, 重新分配到数组上  
+
+- get(K key)    
+
+        这个方法用于从map中获取数据, 这里分为key为null或不为空. 
+        如果为空的话,执行getForNullKey()方法,这个方法会去数组第一个位置的链表中遍历出key为null的Entry. 
+        如果不为空, 则执行getEntry方法, 计算hash,再计算hash在数组中的偏移量, 再对这个偏移量位置的链表进行遍历, 再将获取到的Entry的value返回   
+
+### JDK7 ConcurrentHashMap 结构示意图  
+![jdk7ConcurrentHashMap](/jdk/struct/jdk7ConcurrentHashMap.png)       
+
+> 注意这里的segment, 分段锁.    
+> ConcurrentHashMap中包含的数组元素变为Segment类, 每个Segment中包含一个HashEntry<K,V>数组, 数组元素是一个单向列表, 也就是说,每个Segment看起来像一个小MAP    
+> 这个MAP实现的接口也不一样,是ConCurrentMap<K,V>
+
+### JDK7 ConcurrentHashMap的方法  
+
+-   
