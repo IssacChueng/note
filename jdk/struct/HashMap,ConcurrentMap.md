@@ -1,5 +1,7 @@
 ## HashMap和ConcurrentHashMap的分析
 
+###主要参考了[Java7/8 中的 HashMap 和 ConcurrentHashMap 全解析](http://www.importnew.com/28263.html)
+
 ### HashMap中一些字段  
 -   capacity: 容量,始终保持2^n, 可以扩容,扩容后数组大小为当前2倍  
 -   loadFactor: 负载因子, 默认0.75
@@ -40,7 +42,7 @@
 
 ### JDK7 ConcurrentHashMap的方法  
 
--   构造方法  
+1.   构造方法  
 > 这个方法主要是通过concurrentLevel计算并设置ConcurrentHashMap的segmentShift和segmentMask字段    
 > 初始化Segment数组
 
@@ -97,7 +99,7 @@
     }
 ```
 
--   put(K key, V value)方法
+2.   put(K key, V value)方法
 
 ```java
 /**
@@ -119,52 +121,104 @@ public V put(K key, V value) {
         return s.put(key, hash, value, false);
     }
 ```
+   1.  ensureSegment(int j) 方法
+        > 确保Map中第j个Segment不为空  
+        > 总体流程比较明确, 以Segment[0]为原型,创建length和loadfactor一样的HashEntry数组(或者用代码中的table)  
+        > 有一点要注意就是在创建Segment之前重新检查了一下Segment是否为空,并且创建创建完了之后在将Segment设置到Segment数组之前还检查了一遍,而且这里用的是while循环,应该是为了多线程同时在这个位置创建Segment考虑  
+        > 参考的网页上提到,不清楚为什么在这里需要用while来判断   
 
--   Segment.put(K key, int hash, V value, boolean onlyIfAbsent) 
-> 第一步获取独占锁,因为Segment继承了ReentrantLock,可以直接调用tryLock
-> 第二步获取要插入的表偏移量, 
-```java
-final V put(K key, int hash, V value, boolean onlyIfAbsent) {
-    HashEntry<K,V> node = tryLock() ? null :
-        scanAndLockForPut(key, hash, value);
-    V oldValue;
-    try {
-        HashEntry<K,V>[] tab = table;
-        int index = (tab.length - 1) & hash;
-        HashEntry<K,V> first = entryAt(tab, index);
-        for (HashEntry<K,V> e = first;;) {
-            if (e != null) {
-                K k;
-                if ((k = e.key) == key ||
-                    (e.hash == hash && key.equals(k))) {
-                    oldValue = e.value;
-                    if (!onlyIfAbsent) {
-                        e.value = value;
-                        ++modCount;
-                    }
-                    break;
+        ```java
+        private Segment<K,V> ensureSegment(int k) {
+        final Segment<K,V>[] ss = this.segments;
+        //通过UNSAFE获取Segment需要用偏移量
+        long u = (k << SSHIFT) + SBASE; // raw offset
+        Segment<K,V> seg;
+        //第一次判空
+        if ((seg = (Segment<K,V>)UNSAFE.getObjectVolatile(ss, u)) == null) {
+            //以Segment[0]为原型
+            Segment<K,V> proto = ss[0]; // use segment 0 as prototype
+            int cap = proto.table.length;
+            float lf = proto.loadFactor;
+            int threshold = (int)(cap * lf);
+            HashEntry<K,V>[] tab = (HashEntry<K,V>[])new HashEntry[cap];
+            //第二次判空
+            if ((seg = (Segment<K,V>)UNSAFE.getObjectVolatile(ss, u))
+                == null) { // recheck
+                //设置的参数都跟Segment[0]一样,如果Segment扩容过,这边应该也会扩容,但机会应该不大,不太可能出现Segment[0]扩容了但还有Segment没有初始化的情况
+                Segment<K,V> s = new Segment<K,V>(lf, threshold, tab);
+                //循环判空
+                while ((seg = (Segment<K,V>)UNSAFE.getObjectVolatile(ss, u))
+                       == null) {
+                //CAS操作
+                    if (UNSAFE.compareAndSwapObject(ss, u, null, seg = s))
+                        break;
                 }
-                e = e.next;
-            }
-            else {
-                if (node != null)
-                    node.setNext(first);
-                else
-                    node = new HashEntry<K,V>(hash, key, value, first);
-                int c = count + 1;
-                if (c > threshold && tab.length < MAXIMUM_CAPACITY)
-                    rehash(node);
-                else
-                    setEntryAt(tab, index, node);
-                ++modCount;
-                count = c;
-                oldValue = null;
-                break;
             }
         }
-    } finally {
-        unlock();
-    }
-    return oldValue;
-}
-```
+        return seg;
+        }
+        ```
+
+   2.   Segment.put(K key, int hash, V value, boolean onlyIfAbsent) 
+        > 第一步获取独占锁,因为Segment继承了ReentrantLock,可以直接调用tryLock
+        > 第二步获取要插入的表偏移量, 根据偏移量获取表中对应链表的头部  
+        > 第三步, 循环遍历获取的链表, 如果链表上有数据,一个个判断key是否相等(判断条件就是按== || (hash && equal)), 如果没有数据, 将现在的元素放在链表头部 
+        > 第四步, Segment的count加1, 并计算是否需要扩容(Segment中所有元素数量是否到了阈值,并且是否小于最大值$2^{30}$), 保存元素,并将oldValue置空, 跳出循环
+        ```java
+        final V put(K key, int hash, V value, boolean onlyIfAbsent) {
+            //获取锁
+            //
+            HashEntry<K,V> node = tryLock() ? null :
+                scanAndLockForPut(key, hash, value);
+            V oldValue;
+            try {
+                HashEntry<K,V>[] tab = table;
+                //获取key的hash值在HashEntry表的偏移量
+                int index = (tab.length - 1) & hash;
+                //获取对应链表的表头
+                HashEntry<K,V> first = entryAt(tab, index);
+                for (HashEntry<K,V> e = first;;) {
+                    //这一步跟HashMap中的put一样,判断两个key是否相同
+                    //注意一下这里的判断逻辑
+                    if (e != null) {
+                        K k;
+                        if ((k = e.key) == key ||
+                            (e.hash == hash && key.equals(k))) {
+                            oldValue = e.value;
+                            if (!onlyIfAbsent) {
+                                e.value = value;
+                                ++modCount;
+                            }
+                            break;
+                        }
+                        e = e.next;
+                    }
+                    else {
+                        //如果获取锁失败
+                        if (node != null)
+                            node.setNext(first);
+                        else
+                        //实例化HashEntry
+                            node = new HashEntry<K,V>(hash, key, value, first);
+                        //根据需要扩容或直接设置元素
+                        int c = count + 1;
+                        if (c > threshold && tab.length < MAXIMUM_CAPACITY)
+                            rehash(node);
+                        else
+                            setEntryAt(tab, index, node);
+                        ++modCount;
+                        count = c;
+                        //这个值是要返回的,但看不出为什么不在上面就设置为空而是要在这边设置
+                        oldValue = null;
+                        break;
+                    }
+                }
+            } finally {
+                //别忘了释放锁
+                unlock();
+            }
+            return oldValue;
+        }
+        ```
+    3. Segment.scanAndLockForPut(K key, int hash, V value)方法
+        > 第一步, 
