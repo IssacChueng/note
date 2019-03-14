@@ -221,4 +221,176 @@ public V put(K key, V value) {
         }
         ```
     3. Segment.scanAndLockForPut(K key, int hash, V value)方法
-        > 第一步, 
+        > 当在Segment.put方法开始没有获取到锁时,需要调用这个方法获取到锁,并且有可能会返回一个新的HashEntry. 方法内通过自旋获取锁, 上限是根据CPU核数来的,如果是多核就是64次,单核就1次.  这个方法有一个地方要注意就是自旋锁内的最后一个else if, 这个逻辑表示出现并发往同一个Segment的table的同一个链表上插入元素, 处理方法是重新获取表头,重置获取锁次数, 重新开始一边获取锁流程  
+        第一步获取对应链表上的表头, 设置获取锁次数为-1  
+        开始自旋锁, 当获取锁的次数小于0, 有三种情况  
+          第一种, 链表的表头为空, 这时候需要实例化一个HashEntry,并将获取锁次数置为0.  第二种, 不为空,但表头的key和方法的参数的key不一样, 需要沿着链表往下.  第三种, 两个key一样, 则设置获取锁次数为0. 除了第二种情况以外, 获取锁次数都会变为0.  
+        当获取锁次数大于等于0, 将次数+1, 如果已经超出最大获取锁次数限制, 调用lock方法阻塞获取锁,获取锁后跳出循环, 否则再次tryLock  
+        当获取锁次数为偶数时, 如果获取到的表头元素改变,则重新开始获取锁  
+
+        ```java
+        private HashEntry<K,V> scanAndLockForPut(K key, int hash, V value) {
+            //获取表头
+            HashEntry<K,V> first = entryForHash(this, hash);
+            HashEntry<K,V> e = first;
+            //初始化node为空
+            HashEntry<K,V> node = null;
+            //初始化重复次数为-1
+            int retries = -1; // negative while locating node
+            //尝试获取锁
+            while (!tryLock()) {
+                //里面的逻辑都是获取锁失败后的逻辑
+                HashEntry<K,V> f; // to recheck first below
+                //刚开始获取次数还小于0
+                if (retries < 0) {
+                    //判断表头是否为空
+                    if (e == null) {
+                        //node是否为空,如果不为空,那这段逻辑已经执行过
+                        if (node == null) // speculatively create node
+                            node = new HashEntry<K,V>(hash, key, value, null);
+                        //获取次数置为0
+                        retries = 0;
+                    }
+                    //如果两边的key一样, 置获取次数为0
+                    else if (key.equals(e.key))
+                        retries = 0;
+                    //否则沿着链表往下
+                    else
+                        e = e.next;
+                }
+                //当获取次数超过上限,通过阻塞获取锁,并跳出
+                else if (++retries > MAX_SCAN_RETRIES) {
+                    lock();
+                    break;
+                }
+                //这个逻辑表示出现并发问题,需要重新获取锁
+                else if ((retries & 1) == 0 &&
+                         (f = entryForHash(this, hash)) != first) {
+                    e = first = f; // re-traverse if entry changed
+                    retries = -1;
+                }
+            }
+            //返回可能实例化过的node
+            return node;
+        }
+        ```
+    4. rehash(HashEntry<K,V> node) 扩容方法  
+        > 将Segment中的table扩容一倍, 重新分配元素,并将新元素插入,这个方法出发在put方法中,并且此时已经拿到互斥锁,所以不用考虑并发问题  
+        ```java
+        private void rehash(HashEntry<K,V> node) {
+            
+            HashEntry<K,V>[] oldTable = table;
+            int oldCapacity = oldTable.length;
+            //新容量为原来的两倍
+            int newCapacity = oldCapacity << 1;
+            //新阈值计算
+            threshold = (int)(newCapacity * loadFactor);
+            //实例化新的HashEntry
+            HashEntry<K,V>[] newTable =
+                (HashEntry<K,V>[]) new HashEntry[newCapacity];
+            //掩码, 11111很多个1
+            int sizeMask = newCapacity - 1;
+            for (int i = 0; i < oldCapacity ; i++) {
+                //表头
+                HashEntry<K,V> e = oldTable[i];
+                if (e != null) {
+                    //如果只有表头一个元素,那只要将这个元素重新新分配一下就行
+                    HashEntry<K,V> next = e.next;
+                    int idx = e.hash & sizeMask;
+                    if (next == null)   //  Single node on list
+                        newTable[idx] = e;
+                    else { // Reuse consecutive sequence at same slot
+                        HashEntry<K,V> lastRun = e;
+                        int lastIdx = idx;
+                        //遍历剩下的元素,将最后一个计算出的偏移量与idx不同的元素放到新数组对应表头,这时这个元素后面的元素也相当于到了新的数组
+                        for (HashEntry<K,V> last = next;
+                             last != null;
+                             last = last.next) {
+                            int k = last.hash & sizeMask;
+                            if (k != lastIdx) {
+                                lastIdx = k;
+                                lastRun = last;
+                            }
+                        }
+                        newTable[lastIdx] = lastRun;
+                        // Clone remaining nodes
+                        //从表头到上一个循环找到的新数组的表头元素,计算k,放到对应的元素中
+                        for (HashEntry<K,V> p = e; p != lastRun; p = p.next) {
+                            V v = p.value;
+                            int h = p.hash;
+                            int k = h & sizeMask;
+                            HashEntry<K,V> n = newTable[k];
+                            newTable[k] = new HashEntry<K,V>(h, p.key, v, n);
+                        }
+                    }
+                }
+            }
+            //添加元素
+            int nodeIndex = node.hash & sizeMask; // add the new node
+            node.setNext(newTable[nodeIndex]);
+            newTable[nodeIndex] = node;
+            table = newTable;
+        }
+        ```  
+
+### JDK8的HashMap结构示意图  
+![JDK8的HashMap结构示意图](/jdk/struct/jdk8HashMap.png)  
+> jdk8中,HashMap中添加了红黑树,具体是在链表中元素超过8以后,链表就变成红黑树结构,在链表元素缩回到8以后,红黑树又变回为链表结构.  
+> 这是因为在jdk7中,结构为数组加链表的结构, 当访问一个元素时, 定位出数组的位置很快, 接下去访问元素就需要遍历链表,时间复杂度为O(n), 通过将链表结构转换为红黑树,可以将时间复杂度降低到O($\log$N).  
+> HashMap支持保存null  
+> HashMap中的元素又两种模式,一种为Node,此时元素是链表形态,另一种为TreeNode,此时元素是红黑树形态
+
+  1. put(int hash, K key, V value, boolean onlyIfAbsent, boolean evict)方法  
+        > 上一步是put(K key, V value), 此时evict为true, onlyIfAbsent为false  
+
+        ```java
+        final V putVal(int hash, K key, V value, boolean onlyIfAbsent,
+                   boolean evict) {
+            Node<K,V>[] tab; Node<K,V> p; int n, i;
+            //判空并初始化table
+            if ((tab = table) == null || (n = tab.length) == 0)
+                n = (tab = resize()).length;
+            //放到表头
+            if ((p = tab[i = (n - 1) & hash]) == null)
+                tab[i] = newNode(hash, key, value, null);
+            else {
+                Node<K,V> e; K k;
+                //如果表头的key跟新元素的key相同,则设置新元素,返回老元素
+                //此时p为key的hash对应的表头元素
+                if (p.hash == hash &&
+                    ((k = p.key) == key || (key != null && key.equals(k))))
+                    e = p;
+                //红黑树结构的存放
+                else if (p instanceof TreeNode)
+                    e = ((TreeNode<K,V>)p).putTreeVal(this, tab, hash, key, value);
+                //既不是表头,也不是红黑树结构
+                else {
+                    for (int binCount = 0; ; ++binCount) {
+                        if ((e = p.next) == null) {
+                            p.next = newNode(hash, key, value, null);
+                            //插入新数据, 并且需要将链表扩容成红黑树
+                            if (binCount >= TREEIFY_THRESHOLD - 1) // -1 for 1st
+                                treeifyBin(tab, hash);
+                            break;
+                        }
+                        if (e.hash == hash &&
+                            ((k = e.key) == key || (key != null && key.equals(k))))
+                            break;
+                        p = e;
+                    }
+                }
+                if (e != null) { // existing mapping for key
+                    V oldValue = e.value;
+                    if (!onlyIfAbsent || oldValue == null)
+                        e.value = value;
+                    afterNodeAccess(e);
+                    return oldValue;
+                }
+            }
+            ++modCount;
+            if (++size > threshold)
+                resize();
+            afterNodeInsertion(evict);
+            return null;
+        }
+        ```

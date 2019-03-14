@@ -1,0 +1,126 @@
+{
+    // 使用 IntelliSense 了解相关属性。 
+    // 悬停以查看现有属性的描述。
+    // 欲了解更多信息，请访问: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "java",
+            "name": "Debug (Launch) - Current File",
+            "request": "launch",
+            "mainClass": "${file}"
+        },
+        {
+            "type": "java",
+            "name": "Debug (Launch)-HttpsMain<https>",
+            "request": "launch",
+            "mainClass": "com.study.https.ssl.HttpsMain",
+            "projectName": "https"
+        },
+        {
+            "type": "java",
+            "name": "Debug (Launch)-App<pattern>",
+            "request": "launch",
+            "mainClass": "com.study.App",
+            "projectName": "pattern"
+        },
+        {
+            "type": "java",
+            "name": "Debug (Launch)-Client<pattern>",
+            "request": "launch",
+            "mainClass": "com.study.pattern.behavior.iterator.in.Client",
+            "projectName": "pattern"
+        },
+        {
+            "type": "java",
+            "name": "Debug (Launch)-Client<pattern>(1)",
+            "request": "launch",
+            "mainClass": "com.study.pattern.behavior.iterator.outer.Client",
+            "projectName": "pattern"
+        },
+        {
+            "type": "java",
+            "name": "Debug (Launch)-Client<pattern>(2)",
+            "request": "launch",
+            "mainClass": "com.study.pattern.behavior.observer.Client",
+            "projectName": "pattern"
+        },
+        {
+            "type": "java",
+            "name": "Debug (Launch)-Client<pattern>(3)",
+            "request": "launch",
+            "mainClass": "com.study.pattern.behavior.strategy.Client",
+            "projectName": "pattern"
+        },
+        {
+            "type": "java",
+            "name": "Debug (Launch)-Client<pattern>(4)",
+            "request": "launch",
+            "mainClass": "com.study.pattern.behavior.template.Client",
+            "projectName": "pattern"
+        },
+        {
+            "type": "java",
+            "name": "Debug (Launch)-Client<pattern>(5)",
+            "request": "launch",
+            "mainClass": "com.study.pattern.creator.prototype.Client",
+            "projectName": "pattern"
+        },
+        {
+            "type": "java",
+            "name": "Debug (Launch)-Client<pattern>(6)",
+            "request": "launch",
+            "mainClass": "com.study.pattern.struct.adapter.Client",
+            "projectName": "pattern"
+        },
+        {
+            "type": "java",
+            "name": "Debug (Launch)-Client<pattern>(7)",
+            "request": "launch",
+            "mainClass": "com.study.pattern.struct.bridge.Client",
+            "projectName": "pattern"
+        },
+        {
+            "type": "java",
+            "name": "Debug (Launch)-Client<pattern>(8)",
+            "request": "launch",
+            "mainClass": "com.study.pattern.struct.decorator.Client",
+            "projectName": "pattern"
+        },
+        {
+            "type": "java",
+            "name": "Debug (Launch)-Client<pattern>(9)",
+            "request": "launch",
+            "mainClass": "com.study.pattern.struct.facade.Client",
+            "projectName": "pattern"
+        },
+        {
+            "type": "java",
+            "name": "Debug (Launch)-Client<pattern>(10)",
+            "request": "launch",
+            "mainClass": "com.study.pattern.struct.flyweight.Client",
+            "projectName": "pattern"
+        },
+        {
+            "type": "java",
+            "name": "Debug (Launch)-Client<pattern>(11)",
+            "request": "launch",
+            "mainClass": "com.study.pattern.struct.proxy._dynamic_.cglib.Client",
+            "projectName": "pattern"
+        },
+        {
+            "type": "java",
+            "name": "Debug (Launch)-Client<pattern>(12)",
+            "request": "launch",
+            "mainClass": "com.study.pattern.struct.proxy._dynamic_.jdk.Client",
+            "projectName": "pattern"
+        },
+        {
+            "type": "java",
+            "name": "Debug (Launch)-Client<pattern>(13)",
+            "request": "launch",
+            "mainClass": "com.study.pattern.struct.proxy._static_.Client",
+            "projectName": "pattern"
+        }
+    ]
+}
