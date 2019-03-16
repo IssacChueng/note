@@ -1,5 +1,6 @@
 package com.study.pattern.behavior.iterator.outer;
 
+import java.lang.reflect.Array;
 import java.util.Iterator;
 
 /**
@@ -7,16 +8,16 @@ import java.util.Iterator;
  * @date 2019/2/19
  * @description 具体聚集
  */
-public class ConcreteAggregate implements Aggregate{
+public class ConcreteAggregate<T> implements Aggregate<T>{
 
-    private Object[] objects = null;
+    private T[] objects = null;
 
     private int capcity;
 
     private int size;
 
-    public ConcreteAggregate(int size) {
-        objects = new Object[size];
+    public ConcreteAggregate(int size, Class<T> type) {
+        objects = (T[]) Array.newInstance(type, size);
         capcity = size;
         size = 0;
     }
@@ -38,8 +39,7 @@ public class ConcreteAggregate implements Aggregate{
         if (size >= objects.length) {
             return;
         } else {
-            objects[size] = o;
-            size++;
+            
         }
     }
 }

@@ -7,6 +7,6 @@ import java.util.Iterator;
  * @date 2019/2/19
  * @description 聚集接口, 宽接口
  */
-public interface Aggregate {
-    Iterator createIterator();
+public interface Aggregate<T> {
+    Iterator<T> createIterator();
 }

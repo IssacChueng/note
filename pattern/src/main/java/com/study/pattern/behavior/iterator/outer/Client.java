@@ -9,7 +9,7 @@ import java.util.Iterator;
  */
 public class Client {
     public static void main(String[] args) {
-        ConcreteAggregate aggregate = new ConcreteAggregate(10);
+        ConcreteAggregate<Integer> aggregate = new ConcreteAggregate(10, Integer.class);
         for (int i = 0; i < 5; i++) {
             aggregate.add(1);
         }
