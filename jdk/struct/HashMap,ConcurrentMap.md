@@ -366,6 +366,7 @@ public V put(K key, V value) {
                 //既不是表头,也不是红黑树结构
                 else {
                     for (int binCount = 0; ; ++binCount) {
+                        //到最后一个元素也没找到key相同的
                         if ((e = p.next) == null) {
                             p.next = newNode(hash, key, value, null);
                             //插入新数据, 并且需要将链表扩容成红黑树
@@ -373,12 +374,17 @@ public V put(K key, V value) {
                                 treeifyBin(tab, hash);
                             break;
                         }
+                        
+                        //找到了key相同的,这时候e指向的是当前需要被替换的元素
                         if (e.hash == hash &&
                             ((k = e.key) == key || (key != null && key.equals(k))))
                             break;
+                        //p通过指向自己的next来遍历链表
                         p = e;
                     }
                 }
+
+                //value替换
                 if (e != null) { // existing mapping for key
                     V oldValue = e.value;
                     if (!onlyIfAbsent || oldValue == null)
@@ -388,6 +394,7 @@ public V put(K key, V value) {
                 }
             }
             ++modCount;
+            //按需扩容,jdk8中是先插入,再扩容
             if (++size > threshold)
                 resize();
             afterNodeInsertion(evict);
